@@ -1,0 +1,121 @@
+name: simplex-smp-server
+
+services:
+  # 1. Caddyfile Initialization
+  oneshot:
+    image: ubuntu:latest
+    env_file:
+      - .env
+    command:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /etc/caddy
+        if [ ! -f /etc/caddy/Caddyfile ]; then
+          cat <<EOF > /etc/caddy/Caddyfile
+        http://$$SMP_ADDR {
+            redir https://$$SMP_ADDR{uri} permanent
+        }
+
+        $$SMP_ADDR:8443 {
+            tls {
+                key_type rsa4096
+            }
+        }
+        EOF
+        fi
+    volumes:
+      - ./caddy_conf:/etc/caddy
+
+  # 2. Caddy (Let's Encrypt certificates management)
+  caddy:
+    image: caddy:latest
+    depends_on:
+      oneshot:
+        condition: service_completed_successfully
+    cap_add:
+      - NET_ADMIN
+    env_file:
+      - .env
+    volumes:
+      - ./caddy_conf:/etc/caddy
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    healthcheck:
+      test: "test -d /data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/$${SMP_ADDR} || exit 1"
+      interval: 1s
+      retries: 60
+
+  # 3. SMP Server (dynamic INI generation and startup)
+  smp-server:
+    image: simplexchat/smp-server:latest
+    # platform: linux/amd64
+    depends_on:
+      caddy:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Base settings (can be overridden in .env)
+      ADDR: ${SMP_ADDR}
+      SMP_CFG__TRANSPORT__host: ${SMP_ADDR}
+      SMP_CFG__TRANSPORT__port: "5223,443"
+      SMP_CFG__WEB__https: "443"
+      SMP_CFG__WEB__cert: "/certificates/${SMP_ADDR}.crt"
+      SMP_CFG__WEB__key: "/certificates/${SMP_ADDR}.key"
+      SMP_CFG__WEB__static_path: "/var/opt/simplex/www"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /etc/opt/simplex /var/opt/simplex
+
+        if [ ! -f /etc/opt/simplex/fingerprint ]; then
+            echo "Initializing keys and fingerprint..."
+            smp-server init --yes
+        fi
+        
+        echo "Generating smp-server.ini from environment variables..."
+        
+        env | grep '^SMP_CFG__' | sort | awk -F '=' '{
+            var = $$1
+            val = substr($$0, length(var) + 2)
+            
+            # Skip empty values
+            if (val == "") next
+            
+            # Parse section and key names
+            sub(/^SMP_CFG__/, "", var)
+            split(var, parts, "__")
+            section = parts[1]
+            key = parts[2]
+            
+            if (section != last_section) {
+                print "\n[" section "]"
+                last_section = section
+            }
+            print key ": " val
+        }' > /etc/opt/simplex/smp-server.ini
+        
+        echo "Starting SMP server..."
+        exec smp-server start +RTS -N -RTS
+    volumes:
+      - ./smp_configs:/etc/opt/simplex
+      - ./smp_state:/var/opt/simplex
+      # Direct certificate mapping from Caddy volume
+      - type: volume
+        source: caddy_data
+        target: /certificates
+        volume:
+          subpath: "caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SMP_ADDR}"
+    ports:
+      - "5223:5223"
+      - "443:443"
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

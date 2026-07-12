@@ -1,0 +1,55 @@
+name: simplex-xftp-server
+
+services:
+  xftp-server:
+    image: simplexchat/xftp-server:latest
+    platform: linux/amd64
+    env_file:
+      - .env
+    environment:
+      ADDR: ${XFTP_ADDR}
+      XFTP_CFG__TRANSPORT__host: ${XFTP_ADDR}
+      XFTP_CFG__TRANSPORT__port: "443"
+      XFTP_CFG__FILES__path: "/files"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        if [ ! -f /etc/opt/simplex-xftp/fingerprint ]; then
+            echo "Initializing keys and fingerprint..."
+            # will be rewritten with actual IP and quota
+            xftp-server init --ip 127.0.0.1 --quota 1gb --path /files
+        fi
+        
+        echo "Generating file-server.ini from environment variables..."
+        
+        env | grep '^XFTP_CFG__' | sort | awk -F '=' '{
+            var = $$1
+            val = substr($$0, length(var) + 2)
+            
+            # Skip empty values
+            if (val == "") next
+            
+            # Parse section and key names
+            sub(/^XFTP_CFG__/, "", var)
+            split(var, parts, "__")
+            section = parts[1]
+            key = parts[2]
+            
+            if (section != last_section) {
+                print "\n[" section "]"
+                last_section = section
+            }
+            # IMPORTANT: XFTP uses "=" instead of ":"
+            print key ": " val
+        }' > /etc/opt/simplex-xftp/file-server.ini
+        
+        echo "Starting XFTP server..."
+        exec xftp-server start +RTS -N -RTS
+    volumes:
+      - ./xftp_configs:/etc/opt/simplex-xftp
+      - ./xftp_state:/var/opt/simplex-xftp
+      - ./xftp_files:/files
+    ports:
+      - "443:443"
+    restart: unless-stopped
