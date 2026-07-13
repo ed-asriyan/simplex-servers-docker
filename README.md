@@ -3,6 +3,18 @@ Clean, env-vars configurable Docker deployment for the [SimpleX SMP and XFTP Ser
 
 Forget about manual `.ini` edits and mounting config folders. This setup dynamically generates the entire server configuration from a single `.env` file and automatically provisions Let's Encrypt TLS certificates using Caddy.
 
+## Prerequisites
+Before deploying, ensure your server meets the following requirements:
+
+**Mandatory:**
+* **Docker and Docker Compose** installed.
+* A **Public IP address**.
+* **Port `80` must be available** (open in the firewall and not occupied by other processes) for Caddy to solve HTTP-01 challenges.
+* **Port `443`** (or your custom defined port) must be available for secure client-server communication.
+
+**Optional but Recommended:**
+* A **Domain Name (DNS A-record)** pointing to your server's public IP.
+
 ## Repository Structure
 *   `/smp` — Deployment configuration for the SimpleX SMP Server.
 *   `/xftp` — Deployment configuration for the SimpleX XFTP Server.

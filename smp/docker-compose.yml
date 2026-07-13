@@ -52,7 +52,6 @@ services:
   # 3. SMP Server (dynamic INI generation and startup)
   smp-server:
     image: simplexchat/smp-server:latest
-    # platform: linux/amd64
     depends_on:
       caddy:
         condition: service_healthy
@@ -62,8 +61,8 @@ services:
       # Base settings (can be overridden in .env)
       ADDR: ${SMP_ADDR}
       SMP_CFG__TRANSPORT__host: ${SMP_ADDR}
-      SMP_CFG__TRANSPORT__port: "5223,443"
-      SMP_CFG__WEB__https: "443"
+      SMP_CFG__TRANSPORT__port: "${SMP_PORT_TRANSPORT},${SMP_PORT_HTTPS}"
+      SMP_CFG__WEB__https: "${SMP_PORT_HTTPS}"
       SMP_CFG__WEB__cert: "/certificates/${SMP_ADDR}.crt"
       SMP_CFG__WEB__key: "/certificates/${SMP_ADDR}.key"
       SMP_CFG__WEB__static_path: "/var/opt/simplex/www"
@@ -112,8 +111,8 @@ services:
         volume:
           subpath: "caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SMP_ADDR}"
     ports:
-      - "5223:5223"
-      - "443:443"
+      - "${SMP_PORT_TRANSPORT}:${SMP_PORT_TRANSPORT}"
+      - "${SMP_PORT_HTTPS}:${SMP_PORT_HTTPS}"
     restart: unless-stopped
 
 volumes:

@@ -49,7 +49,6 @@ services:
 
   xftp-server:
     image: simplexchat/xftp-server:latest
-    # platform: linux/amd64
     depends_on:
       caddy:
         condition: service_healthy
@@ -58,7 +57,7 @@ services:
     environment:
       ADDR: ${XFTP_ADDR}
       XFTP_CFG__TRANSPORT__host: ${XFTP_ADDR}
-      XFTP_CFG__TRANSPORT__port: "443"
+      XFTP_CFG__TRANSPORT__port: "${XFTP_PORT_HTTPS}"
       XFTP_CFG__WEB__cert: "/certificates/${XFTP_ADDR}.crt"
       XFTP_CFG__WEB__key: "/certificates/${XFTP_ADDR}.key"
       XFTP_CFG__WEB__static_path: "/var/opt/simplex/www"
@@ -109,7 +108,7 @@ services:
         volume:
           subpath: "caddy/certificates/acme-v02.api.letsencrypt.org-directory/${XFTP_ADDR}"
     ports:
-      - "443:443"
+      - "${XFTP_PORT_HTTPS}:${XFTP_PORT_HTTPS}"
     restart: unless-stopped
 
 volumes:
