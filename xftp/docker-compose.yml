@@ -1,15 +1,67 @@
 name: simplex-xftp-server
 
 services:
+  oneshot:
+    image: ubuntu:latest
+    env_file:
+      - .env
+    command:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /etc/caddy
+        if [ ! -f /etc/caddy/Caddyfile ]; then
+          cat <<EOF > /etc/caddy/Caddyfile
+        http://$$XFTP_ADDR {
+            redir https://$$XFTP_ADDR{uri} permanent
+        }
+
+        $$XFTP_ADDR:8443 {
+            tls {
+                key_type rsa4096
+            }
+        }
+        EOF
+        fi
+    volumes:
+      - ./caddy_conf:/etc/caddy
+
+  caddy:
+    image: caddy:latest
+    depends_on:
+      oneshot:
+        condition: service_completed_successfully
+    cap_add:
+      - NET_ADMIN
+    env_file:
+      - .env
+    volumes:
+      - ./caddy_conf:/etc/caddy
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    healthcheck:
+      test: "test -d /data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/$${XFTP_ADDR} || exit 1"
+      interval: 1s
+      retries: 60
+
   xftp-server:
     image: simplexchat/xftp-server:latest
-    platform: linux/amd64
+    # platform: linux/amd64
+    depends_on:
+      caddy:
+        condition: service_healthy
     env_file:
       - .env
     environment:
       ADDR: ${XFTP_ADDR}
       XFTP_CFG__TRANSPORT__host: ${XFTP_ADDR}
       XFTP_CFG__TRANSPORT__port: "443"
+      XFTP_CFG__WEB__cert: "/certificates/${XFTP_ADDR}.crt"
+      XFTP_CFG__WEB__key: "/certificates/${XFTP_ADDR}.key"
+      XFTP_CFG__WEB__static_path: "/var/opt/simplex/www"
       XFTP_CFG__FILES__path: "/files"
     entrypoint:
       - /bin/sh
@@ -50,6 +102,16 @@ services:
       - ./xftp_configs:/etc/opt/simplex-xftp
       - ./xftp_state:/var/opt/simplex-xftp
       - ./xftp_files:/files
+      # Direct certificate mapping from Caddy volume
+      - type: volume
+        source: caddy_data
+        target: /certificates
+        volume:
+          subpath: "caddy/certificates/acme-v02.api.letsencrypt.org-directory/${XFTP_ADDR}"
     ports:
       - "443:443"
     restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
