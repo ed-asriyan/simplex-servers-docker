@@ -84,23 +84,6 @@ docker compose up -d
 
 ---
 
-## ⚙️ Advanced Configuration (Dynamic INI)
-Both setups feature a **Zero-Touch INI** architecture. The `*-server.ini` files are automatically generated on startup based on your `.env` file.
-
-Any configuration parameter available in the official SimpleX INI files can be controlled via the `.env` file using the `[PREFIX]_CFG__[SECTION]__[key]` naming convention.
-
-If a new version of the SimpleX server introduces new INI sections or keys, you do not need to modify the `docker-compose.yml`. Simply add the corresponding variable to your `.env` file.
-
-**Examples:**
-* To set a specific storage quota for XFTP in the `[FILES]` section:
-  ```env
-  XFTP_CFG__FILES__storage_quota=50gb
-  ```
-* To set a daily block quota for SMP in the `[AUTH]` section:
-  ```env
-  SMP_CFG__AUTH__daily_block_queue_quota=50
-  ```
-
 ## 💾 State Persistence
 Databases, logs, server keys, and uploaded files (for XFTP) are safely persisted in local directories (`./smp_state`, `./xftp_state`, etc.) relative to the `docker-compose.yml` files.
 
@@ -113,10 +96,10 @@ To migrate your server to a new host, you simply need to copy your deployment fo
    ```
 2. Copy the entire deployment folder (which includes `docker-compose.yml`, `.env`, and the state directories) to the new server. You can use `rsync` or `scp`. For example:
    ```bash
-   scp -r ./smp user@new-server:/path/to/destination/
+   scp -r user@old-server:/path/to/deployment/folder user@new-server:/path/to/destination/
    ```
 3. On the new server, navigate into the directory and start the server:
    ```bash
-   cd /path/to/destination/smp
+   cd /path/to/destination/folder
    docker compose up -d
    ```
