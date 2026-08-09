@@ -48,7 +48,7 @@ services:
       retries: 60
 
   xftp-server:
-    image: simplexchat/xftp-server:latest
+    image: simplexchat/xftp-server:v7.0.1
     depends_on:
       caddy:
         condition: service_healthy
