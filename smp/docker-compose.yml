@@ -51,7 +51,7 @@ services:
 
   # 3. SMP Server (dynamic INI generation and startup)
   smp-server:
-    image: simplexchat/smp-server:latest
+    image: simplexchat/smp-server:v7.0.1
     depends_on:
       caddy:
         condition: service_healthy
