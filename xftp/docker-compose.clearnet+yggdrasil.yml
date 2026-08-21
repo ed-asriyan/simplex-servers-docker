@@ -1,0 +1,160 @@
+name: simplex-xftp-server-yggdrasil-clearnet
+
+services:
+  yggdrasil:
+    image: alpine:latest
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    environment:
+      - YGG_PRIV_KEY=${YGG_PRIV_KEY:?YGG_PRIV_KEY is required}
+      - YGG_PEERS=${YGG_PEERS:?YGG_PEERS is required}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache yggdrasil socat
+        
+        echo "Generating base config..."
+        mkdir -p /etc/yggdrasil
+        yggdrasil -genconf > /etc/yggdrasil/yggdrasil.conf
+        if [ -n "$$YGG_PRIV_KEY" ]; then
+          sed -i "s|^\s*PrivateKey:.*|  PrivateKey: $$YGG_PRIV_KEY|g" /etc/yggdrasil/yggdrasil.conf
+        fi
+        if [ -n "$$YGG_PEERS" ]; then
+          LIST=""
+          for p in $$YGG_PEERS; do LIST="$$LIST \"$$p\","; done
+          sed -i "s|Peers:\s*\[.*\]|Peers: [$$LIST]|g" /etc/yggdrasil/yggdrasil.conf
+        fi
+        
+        # Запускаем yggdrasil в фоне
+        yggdrasil -useconffile /etc/yggdrasil/yggdrasil.conf &
+        
+        echo "Starting socat proxies (Yggdrasil -> Caddy)..."
+        socat TCP6-LISTEN:80,fork,reuseaddr TCP4:caddy:80 &
+        exec socat TCP6-LISTEN:443,fork,reuseaddr TCP4:caddy:443
+
+  oneshot:
+    image: ubuntu:latest
+    env_file:
+      - .env
+    command:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /etc/caddy
+        cat <<EOF > /etc/caddy/Caddyfile
+        http://$$XFTP_ADDR {
+            redir https://$$XFTP_ADDR{uri} permanent
+        }
+
+        http:// {
+            reverse_proxy https://xftp-server:$$XFTP_PORT_HTTPS {
+                header_up Host $$XFTP_ADDR
+                transport http {
+                    tls_insecure_skip_verify
+                }
+            }
+        }
+
+        $$XFTP_ADDR:8443 {
+            tls {
+                key_type rsa4096
+            }
+        }
+        EOF
+    volumes:
+      - ./caddy_conf:/etc/caddy
+
+  caddy:
+    image: caddy:latest
+    depends_on:
+      oneshot:
+        condition: service_completed_successfully
+    cap_add:
+      - NET_ADMIN
+    env_file:
+      - .env
+    volumes:
+      - ./caddy_conf:/etc/caddy
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    healthcheck:
+      test: "test -d /data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/$${XFTP_ADDR} || exit 1"
+      interval: 1s
+      retries: 60
+
+  xftp-server:
+    image: simplexchat/xftp-server:latest
+    depends_on:
+      caddy:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      ADDR: ${XFTP_ADDR}
+      XFTP_CFG__TRANSPORT__host: ${XFTP_ADDR}
+      XFTP_CFG__TRANSPORT__port: "${XFTP_PORT_HTTPS}"
+      XFTP_CFG__WEB__cert: "/certificates/${XFTP_ADDR}.crt"
+      XFTP_CFG__WEB__key: "/certificates/${XFTP_ADDR}.key"
+      XFTP_CFG__WEB__static_path: "/var/opt/simplex/www"
+      XFTP_CFG__FILES__path: "/files"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        if [ ! -f /etc/opt/simplex-xftp/fingerprint ]; then
+            echo "Initializing keys and fingerprint..."
+            # will be rewritten with actual IP and quota
+            xftp-server init --ip 127.0.0.1 --quota 1gb --path /files
+        fi
+        
+        echo "Generating file-server.ini from environment variables..."
+        
+        env | grep '^XFTP_CFG__' | sort | awk -F '=' '{
+            var = $$1
+            val = substr($$0, length(var) + 2)
+            
+            # Skip empty values
+            if (val == "") next
+            
+            # Parse section and key names
+            sub(/^XFTP_CFG__/, "", var)
+            split(var, parts, "__")
+            section = parts[1]
+            key = parts[2]
+            
+            if (section != last_section) {
+                print "\n[" section "]"
+                last_section = section
+            }
+            # IMPORTANT: XFTP uses "=" instead of ":"
+            print key ": " val
+        }' > /etc/opt/simplex-xftp/file-server.ini
+        
+        echo "Starting XFTP server..."
+        exec xftp-server start +RTS -N -RTS
+    volumes:
+      - ./xftp_configs:/etc/opt/simplex-xftp
+      - ./xftp_state:/var/opt/simplex-xftp
+      - ./xftp_files:/files
+      # Direct certificate mapping from Caddy volume
+      - type: volume
+        source: caddy_data
+        target: /certificates
+        volume:
+          subpath: "caddy/certificates/acme-v02.api.letsencrypt.org-directory/${XFTP_ADDR}"
+    ports:
+      - "${XFTP_PORT_HTTPS}:${XFTP_PORT_HTTPS}"
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
