@@ -39,11 +39,11 @@ Before deploying, ensure your server meets the following requirements:
    ```bash
    docker compose up -d
    ```
-4. Print the XFTP address:
+4. Print the server addresses (see [Server Addresses](#-server-addresses)):
    ```bash
-   docker compose logs | grep "Server address:"
+   cat addresses.txt
    ```
-5. Add the address to your SimpleX Chat client.
+5. Add the `smp` address to your SimpleX Chat client.
 6. _(optional)_ Add the server to the [Unofficial SimpleX Catalog](https://simplex-directory.asriyan.me).
 
 **Applying Changes after startup**
@@ -69,11 +69,11 @@ docker compose up -d
    ```bash
    docker compose up -d
    ```
-4. Print the XFTP address:
+4. Print the server addresses (see [Server Addresses](#-server-addresses)):
    ```bash
-   docker compose logs | grep "Server address:"
+   cat addresses.txt
    ```
-5. Add the address to your SimpleX Chat client.
+5. Add the `xftp` address to your SimpleX Chat client.
 6. _(optional)_ Add the server to the [Unofficial SimpleX Catalog](https://simplex-directory.asriyan.me).
 
 **Applying Changes after startup**
@@ -83,6 +83,36 @@ docker compose up -d
 ```
 
 ---
+
+## 📇 Server Addresses
+On every start the `addresses` service prints ready-to-use addresses, one per line, and saves them to `./addresses.txt`:
+```
+SIMPLEX_ADDRESS <network> <type> <address>
+```
+* `<network>` — `clearnet` or `yggdrasil` (the latter only with `docker-compose.clearnet+yggdrasil.yml`).
+* `<type>` — `smp` / `xftp` for the server address to add to SimpleX Chat, `info` for the server information web page.
+
+Example:
+```
+SIMPLEX_ADDRESS clearnet smp smp://<fingerprint>@smp.example.com
+SIMPLEX_ADDRESS clearnet info https://smp.example.com/
+SIMPLEX_ADDRESS yggdrasil smp smp://<fingerprint>@[200:1234:5678::1]
+SIMPLEX_ADDRESS yggdrasil info http://[200:1234:5678::1]/
+```
+
+The format is stable and meant for scripts, e.g.:
+```bash
+docker compose logs --no-log-prefix addresses | grep '^SIMPLEX_ADDRESS ' | awk '$2 == "yggdrasil" && $3 == "smp" { print $4 }'
+```
+
+## 🌳 Yggdrasil
+`docker-compose.clearnet+yggdrasil.yml` additionally exposes the server on its [Yggdrasil](https://yggdrasil-network.github.io) address. It requires two more variables in `.env`:
+* `YGG_PRIV_KEY` — node private key (hex). The Yggdrasil address is derived from it, so keep it stable. Generate one with `yggdrasil -genconf -json` and take `PrivateKey`.
+* `YGG_PEERS` — space-separated list of peers, e.g. `tls://ygg.example.net:443`.
+
+```bash
+docker compose -f docker-compose.clearnet+yggdrasil.yml up -d
+```
 
 ## 💾 State Persistence
 Databases, logs, server keys, and uploaded files (for XFTP) are safely persisted in local directories (`./smp_state`, `./xftp_state`, etc.) relative to the `docker-compose.yml` files.

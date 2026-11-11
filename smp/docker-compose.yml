@@ -115,6 +115,37 @@ services:
       - "${SMP_PORT_HTTPS}:${SMP_PORT_HTTPS}"
     restart: unless-stopped
 
+  # Ready-to-use server addresses, one per line:
+  #   SIMPLEX_ADDRESS <network> <smp|info> <address>
+  # Printed to the logs (docker compose logs addresses) and saved to ./addresses.txt
+  addresses:
+    image: alpine:latest
+    depends_on:
+      smp-server:
+        condition: service_started
+    env_file:
+      - .env
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        i=0
+        until [ -s /etc/opt/simplex/fingerprint ]; do
+          i=$$((i + 1))
+          if [ $$i -gt 300 ]; then echo "Fingerprint not found in /etc/opt/simplex" >&2; exit 1; fi
+          sleep 1
+        done
+        FP=$$(cat /etc/opt/simplex/fingerprint)
+        [ "$$SMP_PORT_TRANSPORT" = 5223 ] && PORT="" || PORT=":$$SMP_PORT_TRANSPORT"
+        [ "$$SMP_PORT_HTTPS" = 443 ] && WEB_PORT="" || WEB_PORT=":$$SMP_PORT_HTTPS"
+        {
+          echo "SIMPLEX_ADDRESS clearnet smp smp://$$FP@$$SMP_ADDR$$PORT"
+          echo "SIMPLEX_ADDRESS clearnet info https://$$SMP_ADDR$$WEB_PORT/"
+        } | tee /deploy/addresses.txt
+    volumes:
+      - ./smp_configs:/etc/opt/simplex:ro
+      - ./:/deploy
+
 volumes:
   caddy_data:
   caddy_config:
