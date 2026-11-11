@@ -39,11 +39,11 @@ Before deploying, ensure your server meets the following requirements:
    ```bash
    docker compose up -d
    ```
-4. Print the XFTP address:
+4. Print the server addresses (see [Server Addresses](#-server-addresses)):
    ```bash
-   docker compose logs | grep "Server address:"
+   cat addresses.txt
    ```
-5. Add the address to your SimpleX Chat client.
+5. Add the `smp` address to your SimpleX Chat client.
 6. _(optional)_ Add the server to the [Unofficial SimpleX Catalog](https://simplex-directory.asriyan.me).
 
 **Applying Changes after startup**
@@ -69,11 +69,11 @@ docker compose up -d
    ```bash
    docker compose up -d
    ```
-4. Print the XFTP address:
+4. Print the server addresses (see [Server Addresses](#-server-addresses)):
    ```bash
-   docker compose logs | grep "Server address:"
+   cat addresses.txt
    ```
-5. Add the address to your SimpleX Chat client.
+5. Add the `xftp` address to your SimpleX Chat client.
 6. _(optional)_ Add the server to the [Unofficial SimpleX Catalog](https://simplex-directory.asriyan.me).
 
 **Applying Changes after startup**
@@ -83,6 +83,45 @@ docker compose up -d
 ```
 
 ---
+
+## 📇 Server Addresses
+On every start the `addresses` service prints ready-to-use addresses, one per line, and saves them to `./addresses.txt`:
+```
+SIMPLEX_ADDRESS <network> <type> <address>
+```
+* `<network>` — `clearnet` or `yggdrasil` (the latter only with `docker-compose.clearnet+yggdrasil.yml`).
+* `<type>` — `smp` / `xftp` for the server address to add to SimpleX Chat, `info` for the server information web page.
+
+Example:
+```
+SIMPLEX_ADDRESS clearnet smp smp://<fingerprint>@smp.example.com
+SIMPLEX_ADDRESS clearnet info https://smp.example.com/
+SIMPLEX_ADDRESS yggdrasil smp smp://<fingerprint>@[200:1234:5678::1]
+SIMPLEX_ADDRESS yggdrasil info http://[200:1234:5678::1]/
+```
+
+The format is stable and meant for scripts, e.g.:
+```bash
+docker compose logs --no-log-prefix addresses | grep '^SIMPLEX_ADDRESS ' | awk '$2 == "yggdrasil" && $3 == "smp" { print $4 }'
+```
+
+## 🌳 Yggdrasil
+`docker-compose.clearnet+yggdrasil.yml` additionally exposes the server on its [Yggdrasil](https://yggdrasil-network.github.io) address. It requires two more variables in `.env`:
+* `YGG_PRIV_KEY` — node private key (hex). The Yggdrasil address is derived from it, so keep it stable. Generate one with `yggdrasil -genconf -json` and take `PrivateKey`.
+* `YGG_PEERS` — space-separated list of peers, e.g. `tls://ygg.example.net:443`.
+
+```bash
+docker compose -f docker-compose.clearnet+yggdrasil.yml up -d
+```
+
+## 🔐 Custom ACME CA
+Certificates are issued by Let's Encrypt by default. To use another ACME CA (Let's Encrypt staging, ZeroSSL, a private CA, ...), set its directory URL in `.env`:
+```
+ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
+```
+The Caddy configuration is generated from `.env` on every `docker compose up`, so changes to `SMP_ADDR`/`XFTP_ADDR`, ports or `ACME_CA` are applied automatically.
+
+> **Upgrading:** earlier versions generated `caddy_conf/Caddyfile` once and kept it. That directory is no longer used and can be deleted; manual edits to it are not carried over.
 
 ## 💾 State Persistence
 Databases, logs, server keys, and uploaded files (for XFTP) are safely persisted in local directories (`./smp_state`, `./xftp_state`, etc.) relative to the `docker-compose.yml` files.
@@ -103,3 +142,15 @@ To migrate your server to a new host, you simply need to copy your deployment fo
    cd /path/to/destination/folder
    docker compose up -d
    ```
+
+## 🧪 Tests
+`.github/workflows/e2e.yml` runs `tests/e2e.py` on every push and pull request for each compose file (`smp`/`xftp` × `clearnet`/`yggdrasil`). The test:
+1. brings the deployment up with [Pebble](https://github.com/letsencrypt/pebble) as the ACME CA (`tests/compose.ci.yml`) and, for the Yggdrasil variant, a local Yggdrasil node peered with the server's node;
+2. reads the `SIMPLEX_ADDRESS` lines;
+3. runs `/_server test 1 <address>` in the [SimpleX Chat CLI](https://github.com/simplex-chat/simplex-chat/blob/stable/docs/CLI.md) for every server address and published port, and opens every `info` page in headless Chromium.
+
+Logs and screenshots are uploaded as workflow artifacts. To run locally (needs Docker, IPv6, the `simplex-chat` CLI, Python Playwright, and `yggdrasil` + root for the Yggdrasil variant):
+```bash
+echo "127.0.0.1 smp.test xftp.test" | sudo tee -a /etc/hosts
+python tests/e2e.py --server smp --variant clearnet
+```

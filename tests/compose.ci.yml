@@ -1,0 +1,24 @@
+# Test-only overrides, merged on top of a deployment compose file by tests/e2e.py.
+#
+# - Let's Encrypt is replaced with Pebble (ACME test CA): .env sets
+#   ACME_CA=https://pebble:14000/dir, challenges are always accepted, and
+#   Caddy trusts Pebble's HTTPS certificate via SSL_CERT_FILE.
+# - The server's Yggdrasil node peers with a node started on the test host,
+#   reachable as host.docker.internal.
+
+services:
+  pebble:
+    image: ghcr.io/letsencrypt/pebble:2.10.3
+    environment:
+      PEBBLE_VA_ALWAYS_VALID: "1"
+      PEBBLE_VA_NOSLEEP: "1"
+      PEBBLE_WFE_NONCEREJECT: "0"
+
+  caddy:
+    depends_on:
+      pebble:
+        condition: service_started
+    environment:
+      SSL_CERT_FILE: /pebble.minica.pem
+    volumes:
+      - ${PEBBLE_ROOT_CA:?PEBBLE_ROOT_CA is required}:/pebble.minica.pem:ro
