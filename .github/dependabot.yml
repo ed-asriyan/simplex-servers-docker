@@ -1,9 +1,11 @@
 version: 2
 updates:
+  # Server images (smp-server, xftp-server) and the Pebble test CA
   - package-ecosystem: "docker-compose"
     directories:
       - "/smp"
       - "/xftp"
+      - "/tests"
     open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
@@ -11,3 +13,28 @@ updates:
       - dependency-name: "*"
         update-types:
           - "version-update:semver-patch"
+
+  # Playwright used by the e2e test
+  - package-ecosystem: "pip"
+    directory: "/tests"
+    open-pull-requests-limit: 1
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-patch"
+
+  # Actions used by the workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    open-pull-requests-limit: 1
+    schedule:
+      interval: "weekly"
+
+  # Dev container features
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    open-pull-requests-limit: 1
+    schedule:
+      interval: "weekly"

@@ -36,7 +36,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 TESTS = REPO / "tests"
-PEBBLE_IMAGE = "ghcr.io/letsencrypt/pebble:2.10.3"
+# Single source of truth for the Pebble version (kept up to date by Dependabot).
+PEBBLE_IMAGE = re.search(r"^\s*image:\s*(\S*/pebble:\S+)", (TESTS / "compose.ci.yml").read_text(), re.M)[1]
 COMPOSE_FILES = {
     "clearnet": "docker-compose.yml",
     "yggdrasil": "docker-compose.clearnet-yggdrasil.yml",
