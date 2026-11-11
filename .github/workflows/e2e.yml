@@ -6,6 +6,7 @@ name: e2e
 
 on:
   push:
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
@@ -19,9 +20,6 @@ env:
 
 jobs:
   e2e:
-    # Branches of this repository are tested on push; pull requests only from forks,
-    # so the same commit is not tested twice.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     name: ${{ matrix.server }} / ${{ matrix.variant }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20

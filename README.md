@@ -144,7 +144,7 @@ To migrate your server to a new host, you simply need to copy your deployment fo
    ```
 
 ## 🧪 Tests
-`.github/workflows/e2e.yml` runs `tests/e2e.py` on every push and pull request for each compose file (`smp`/`xftp` × `clearnet`/`yggdrasil`). The test:
+`.github/workflows/e2e.yml` runs `tests/e2e.py` on pull requests and pushes to `master` for each compose file (`smp`/`xftp` × `clearnet`/`yggdrasil`). The test:
 1. brings the deployment up with [Pebble](https://github.com/letsencrypt/pebble) as the ACME CA (`tests/compose.ci.yml`) and, for the Yggdrasil variant, a local Yggdrasil node peered with the server's node;
 2. reads the `SIMPLEX_ADDRESS` lines;
 3. runs `/_server test 1 <address>` in the [SimpleX Chat CLI](https://github.com/simplex-chat/simplex-chat/blob/stable/docs/CLI.md) for every server address and published port, and opens every `info` page in headless Chromium.
