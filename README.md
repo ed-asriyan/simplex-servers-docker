@@ -89,7 +89,7 @@ On every start the `addresses` service prints ready-to-use addresses, one per li
 ```
 SIMPLEX_ADDRESS <network> <type> <address>
 ```
-* `<network>` — `clearnet` or `yggdrasil` (the latter only with `docker-compose.clearnet+yggdrasil.yml`).
+* `<network>` — `clearnet` or `yggdrasil` (the latter only with `docker-compose.clearnet-yggdrasil.yml`).
 * `<type>` — `smp` / `xftp` for the server address to add to SimpleX Chat, `info` for the server information web page.
 
 Example:
@@ -106,12 +106,12 @@ docker compose logs --no-log-prefix addresses | grep '^SIMPLEX_ADDRESS ' | awk '
 ```
 
 ## 🌳 Yggdrasil
-`docker-compose.clearnet+yggdrasil.yml` additionally exposes the server on its [Yggdrasil](https://yggdrasil-network.github.io) address. It requires two more variables in `.env`:
+`docker-compose.clearnet-yggdrasil.yml` additionally exposes the server on its [Yggdrasil](https://yggdrasil-network.github.io) address. It requires two more variables in `.env`:
 * `YGG_PRIV_KEY` — node private key (hex). The Yggdrasil address is derived from it, so keep it stable. Generate one with `yggdrasil -genconf -json` and take `PrivateKey`.
 * `YGG_PEERS` — space-separated list of peers, e.g. `tls://ygg.example.net:443`.
 
 ```bash
-docker compose -f docker-compose.clearnet+yggdrasil.yml up -d
+docker compose -f docker-compose.clearnet-yggdrasil.yml up -d
 ```
 
 ## 🔐 Custom ACME CA

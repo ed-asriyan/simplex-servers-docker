@@ -39,7 +39,7 @@ TESTS = REPO / "tests"
 PEBBLE_IMAGE = "ghcr.io/letsencrypt/pebble:2.10.3"
 COMPOSE_FILES = {
     "clearnet": "docker-compose.yml",
-    "yggdrasil": "docker-compose.clearnet+yggdrasil.yml",
+    "yggdrasil": "docker-compose.clearnet-yggdrasil.yml",
 }
 YGG_LISTEN_PORT = 12345
 # Port a client uses when the address has none.
