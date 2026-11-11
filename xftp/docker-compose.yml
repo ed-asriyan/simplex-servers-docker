@@ -5,6 +5,8 @@ services:
     image: ubuntu:latest
     env_file:
       - .env
+    environment:
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
     command:
       - /bin/sh
       - -c
@@ -12,6 +14,10 @@ services:
         mkdir -p /etc/caddy
         if [ ! -f /etc/caddy/Caddyfile ]; then
           cat <<EOF > /etc/caddy/Caddyfile
+        {
+            acme_ca $$ACME_CA
+        }
+
         http://$$XFTP_ADDR {
             redir https://$$XFTP_ADDR{uri} permanent
         }
@@ -35,6 +41,8 @@ services:
       - NET_ADMIN
     env_file:
       - .env
+    environment:
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
     volumes:
       - ./caddy_conf:/etc/caddy
       - caddy_data:/data
@@ -43,7 +51,7 @@ services:
       - "80:80"
     restart: unless-stopped
     healthcheck:
-      test: "test -d /data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/$${XFTP_ADDR} || exit 1"
+      test: test -f "/data/caddy/certificates/$$(echo "$$ACME_CA" | sed -E 's#^[a-zA-Z]+://##; s#/+$$##; s#[/:]#-#g' | tr 'A-Z' 'a-z')/$$XFTP_ADDR/$$XFTP_ADDR.crt"
       interval: 1s
       retries: 60
 
@@ -58,8 +66,7 @@ services:
       ADDR: ${XFTP_ADDR}
       XFTP_CFG__TRANSPORT__host: ${XFTP_ADDR}
       XFTP_CFG__TRANSPORT__port: "${XFTP_PORT_HTTPS}"
-      XFTP_CFG__WEB__cert: "/certificates/${XFTP_ADDR}.crt"
-      XFTP_CFG__WEB__key: "/certificates/${XFTP_ADDR}.key"
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
       XFTP_CFG__WEB__static_path: "/var/opt/simplex/www"
       XFTP_CFG__FILES__path: "/files"
     entrypoint:
@@ -72,6 +79,10 @@ services:
             xftp-server init --ip 127.0.0.1 --quota 1gb --path /files
         fi
         
+        CERT_DIR="/caddy/caddy/certificates/$$(echo "$$ACME_CA" | sed -E 's#^[a-zA-Z]+://##; s#/+$$##; s#[/:]#-#g' | tr 'A-Z' 'a-z')/$$XFTP_ADDR"
+        export XFTP_CFG__WEB__cert="$$CERT_DIR/$$XFTP_ADDR.crt"
+        export XFTP_CFG__WEB__key="$$CERT_DIR/$$XFTP_ADDR.key"
+
         echo "Generating file-server.ini from environment variables..."
         
         env | grep '^XFTP_CFG__' | sort | awk -F '=' '{
@@ -100,12 +111,8 @@ services:
       - ./xftp_configs:/etc/opt/simplex-xftp
       - ./xftp_state:/var/opt/simplex-xftp
       - ./xftp_files:/files
-      # Direct certificate mapping from Caddy volume
-      - type: volume
-        source: caddy_data
-        target: /certificates
-        volume:
-          subpath: "caddy/certificates/acme-v02.api.letsencrypt.org-directory/${XFTP_ADDR}"
+      # Caddy data volume (TLS certificates for the information page)
+      - caddy_data:/caddy:ro
     ports:
       - "${XFTP_PORT_HTTPS}:${XFTP_PORT_HTTPS}"
     restart: unless-stopped

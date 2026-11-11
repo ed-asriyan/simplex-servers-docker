@@ -6,6 +6,8 @@ services:
     image: ubuntu:latest
     env_file:
       - .env
+    environment:
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
     command:
       - /bin/sh
       - -c
@@ -13,6 +15,10 @@ services:
         mkdir -p /etc/caddy
         if [ ! -f /etc/caddy/Caddyfile ]; then
           cat <<EOF > /etc/caddy/Caddyfile
+        {
+            acme_ca $$ACME_CA
+        }
+
         http://$$SMP_ADDR {
             redir https://$$SMP_ADDR{uri} permanent
         }
@@ -37,6 +43,8 @@ services:
       - NET_ADMIN
     env_file:
       - .env
+    environment:
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
     volumes:
       - ./caddy_conf:/etc/caddy
       - caddy_data:/data
@@ -45,7 +53,7 @@ services:
       - "80:80"
     restart: unless-stopped
     healthcheck:
-      test: "test -d /data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/$${SMP_ADDR} || exit 1"
+      test: test -f "/data/caddy/certificates/$$(echo "$$ACME_CA" | sed -E 's#^[a-zA-Z]+://##; s#/+$$##; s#[/:]#-#g' | tr 'A-Z' 'a-z')/$$SMP_ADDR/$$SMP_ADDR.crt"
       interval: 1s
       retries: 60
 
@@ -63,8 +71,7 @@ services:
       SMP_CFG__TRANSPORT__host: ${SMP_ADDR}
       SMP_CFG__TRANSPORT__port: "${SMP_PORT_TRANSPORT},${SMP_PORT_HTTPS}"
       SMP_CFG__WEB__https: "${SMP_PORT_HTTPS}"
-      SMP_CFG__WEB__cert: "/certificates/${SMP_ADDR}.crt"
-      SMP_CFG__WEB__key: "/certificates/${SMP_ADDR}.key"
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
       SMP_CFG__WEB__static_path: "/var/opt/simplex/www"
     entrypoint:
       - /bin/sh
@@ -77,6 +84,10 @@ services:
             smp-server init --yes
         fi
         
+        CERT_DIR="/caddy/caddy/certificates/$$(echo "$$ACME_CA" | sed -E 's#^[a-zA-Z]+://##; s#/+$$##; s#[/:]#-#g' | tr 'A-Z' 'a-z')/$$SMP_ADDR"
+        export SMP_CFG__WEB__cert="$$CERT_DIR/$$SMP_ADDR.crt"
+        export SMP_CFG__WEB__key="$$CERT_DIR/$$SMP_ADDR.key"
+
         echo "Generating smp-server.ini from environment variables..."
         
         env | grep '^SMP_CFG__' | sort | awk -F '=' '{
@@ -104,12 +115,8 @@ services:
     volumes:
       - ./smp_configs:/etc/opt/simplex
       - ./smp_state:/var/opt/simplex
-      # Direct certificate mapping from Caddy volume
-      - type: volume
-        source: caddy_data
-        target: /certificates
-        volume:
-          subpath: "caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SMP_ADDR}"
+      # Caddy data volume (TLS certificates for the information page)
+      - caddy_data:/caddy:ro
     ports:
       - "${SMP_PORT_TRANSPORT}:${SMP_PORT_TRANSPORT}"
       - "${SMP_PORT_HTTPS}:${SMP_PORT_HTTPS}"

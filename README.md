@@ -114,6 +114,13 @@ docker compose logs --no-log-prefix addresses | grep '^SIMPLEX_ADDRESS ' | awk '
 docker compose -f docker-compose.clearnet+yggdrasil.yml up -d
 ```
 
+## 🔐 Custom ACME CA
+Certificates are issued by Let's Encrypt by default. To use another ACME CA (Let's Encrypt staging, ZeroSSL, a private CA, ...), set its directory URL in `.env`:
+```
+ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
+```
+`docker-compose.yml` generates `caddy_conf/Caddyfile` only once, so on an existing deployment delete that file before `docker compose up -d`.
+
 ## 💾 State Persistence
 Databases, logs, server keys, and uploaded files (for XFTP) are safely persisted in local directories (`./smp_state`, `./xftp_state`, etc.) relative to the `docker-compose.yml` files.
 
