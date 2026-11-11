@@ -1,0 +1,80 @@
+name: e2e
+
+# Brings up every compose file and checks that the servers work:
+# `/_server test` from the SimpleX Chat CLI for every address and port,
+# and the information page in headless Chromium (see tests/e2e.py).
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SIMPLEX_CHAT_VERSION: v7.1.2
+  YGGDRASIL_VERSION: 0.5.15
+  PLAYWRIGHT_VERSION: 1.63.0
+
+jobs:
+  e2e:
+    # Branches of this repository are tested on push; pull requests only from forks,
+    # so the same commit is not tested twice.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    name: ${{ matrix.server }} / ${{ matrix.variant }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        server: [smp, xftp]
+        variant: [clearnet, yggdrasil]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve test domains to localhost
+        run: echo "127.0.0.1 smp.test xftp.test" | sudo tee -a /etc/hosts
+
+      - name: Install SimpleX Chat CLI
+        run: |
+          curl -fsSL -o simplex-chat \
+            "https://github.com/simplex-chat/simplex-chat/releases/download/${SIMPLEX_CHAT_VERSION}/simplex-chat-ubuntu-24_04-x86_64"
+          sudo install -m 755 simplex-chat /usr/local/bin/simplex-chat
+          simplex-chat --version
+
+      - name: Install Yggdrasil
+        if: matrix.variant == 'yggdrasil'
+        run: |
+          curl -fsSL -o yggdrasil.deb \
+            "https://github.com/yggdrasil-network/yggdrasil-go/releases/download/v${YGGDRASIL_VERSION}/yggdrasil-${YGGDRASIL_VERSION}-amd64.deb"
+          # Only the binary: the package would also start a system-wide node.
+          dpkg-deb -x yggdrasil.deb yggdrasil-pkg
+          sudo install -m 755 yggdrasil-pkg/usr/bin/yggdrasil /usr/local/bin/yggdrasil
+          yggdrasil -version
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Playwright
+        run: |
+          pip install "playwright==${PLAYWRIGHT_VERSION}"
+          python -m playwright install --with-deps chromium
+
+      - name: Run e2e test
+        run: |
+          python tests/e2e.py \
+            --server "${{ matrix.server }}" \
+            --variant "${{ matrix.variant }}" \
+            --workdir "${RUNNER_TEMP}/deployment" \
+            --artifacts "${RUNNER_TEMP}/artifacts"
+
+      - name: Upload logs and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ matrix.server }}-${{ matrix.variant }}
+          path: ${{ runner.temp }}/artifacts
+          if-no-files-found: ignore

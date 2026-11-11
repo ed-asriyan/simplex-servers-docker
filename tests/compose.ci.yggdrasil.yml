@@ -1,0 +1,7 @@
+# Test-only overrides for docker-compose.clearnet+yggdrasil.yml:
+# lets the server's Yggdrasil node reach the test host's node (YGG_PEERS).
+
+services:
+  yggdrasil:
+    extra_hosts:
+      - host.docker.internal:host-gateway
