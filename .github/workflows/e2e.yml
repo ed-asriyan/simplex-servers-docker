@@ -6,6 +6,7 @@ name: e2e
 
 on:
   push:
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
@@ -16,13 +17,9 @@ concurrency:
 env:
   SIMPLEX_CHAT_VERSION: v7.1.2
   YGGDRASIL_VERSION: 0.5.15
-  PLAYWRIGHT_VERSION: 1.63.0
 
 jobs:
   e2e:
-    # Branches of this repository are tested on push; pull requests only from forks,
-    # so the same commit is not tested twice.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     name: ${{ matrix.server }} / ${{ matrix.variant }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -57,10 +54,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tests/requirements.txt
 
       - name: Install Playwright
         run: |
-          pip install "playwright==${PLAYWRIGHT_VERSION}"
+          pip install -r tests/requirements.txt
           python -m playwright install --with-deps chromium
 
       - name: Run e2e test
