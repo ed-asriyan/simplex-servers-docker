@@ -2,3 +2,5 @@ smp_configs
 smp_state
 xftp_configs
 xftp_state
+xftp_files
+caddy_conf

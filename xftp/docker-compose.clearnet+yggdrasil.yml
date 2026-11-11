@@ -31,12 +31,11 @@ services:
           sed -i "s|Peers:\s*\[.*\]|Peers: [$$LIST]|g" /etc/yggdrasil/yggdrasil.conf
         fi
         
-        # Запускаем yggdrasil в фоне
         yggdrasil -useconffile /etc/yggdrasil/yggdrasil.conf &
         
         echo "Starting socat proxies..."
         socat TCP6-LISTEN:80,fork,reuseaddr TCP4:caddy:80 &
-        exec socat TCP6-LISTEN:443,fork,reuseaddr TCP4:xftp-server:${XFTP_PORT_HTTPS:-443}
+        exec socat TCP6-LISTEN:${XFTP_PORT_HTTPS:-443},fork,reuseaddr TCP4:xftp-server:${XFTP_PORT_HTTPS:-443}
 
   oneshot:
     image: ubuntu:latest
@@ -92,7 +91,7 @@ services:
       retries: 60
 
   xftp-server:
-    image: simplexchat/xftp-server:latest
+    image: simplexchat/xftp-server:v7.0.1
     depends_on:
       caddy:
         condition: service_healthy
@@ -135,7 +134,6 @@ services:
                 print "\n[" section "]"
                 last_section = section
             }
-            # IMPORTANT: XFTP uses "=" instead of ":"
             print key ": " val
         }' > /etc/opt/simplex-xftp/file-server.ini
         

@@ -91,7 +91,6 @@ services:
                 print "\n[" section "]"
                 last_section = section
             }
-            # IMPORTANT: XFTP uses "=" instead of ":"
             print key ": " val
         }' > /etc/opt/simplex-xftp/file-server.ini
         

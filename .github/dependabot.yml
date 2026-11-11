@@ -1,7 +1,9 @@
 version: 2
 updates:
-  - package-ecosystem: "docker"
-    directory: "/bot"
+  - package-ecosystem: "docker-compose"
+    directories:
+      - "/smp"
+      - "/xftp"
     open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
