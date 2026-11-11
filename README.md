@@ -119,7 +119,9 @@ Certificates are issued by Let's Encrypt by default. To use another ACME CA (Let
 ```
 ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
 ```
-`docker-compose.yml` generates `caddy_conf/Caddyfile` only once, so on an existing deployment delete that file before `docker compose up -d`.
+The Caddy configuration is generated from `.env` on every `docker compose up`, so changes to `SMP_ADDR`/`XFTP_ADDR`, ports or `ACME_CA` are applied automatically.
+
+> **Upgrading:** earlier versions generated `caddy_conf/Caddyfile` once and kept it. That directory is no longer used and can be deleted; manual edits to it are not carried over.
 
 ## 💾 State Persistence
 Databases, logs, server keys, and uploaded files (for XFTP) are safely persisted in local directories (`./smp_state`, `./xftp_state`, etc.) relative to the `docker-compose.yml` files.

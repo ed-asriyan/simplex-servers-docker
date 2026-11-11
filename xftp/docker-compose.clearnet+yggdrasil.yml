@@ -37,57 +37,18 @@ services:
         socat TCP6-LISTEN:80,fork,reuseaddr TCP4:caddy:80 &
         exec socat TCP6-LISTEN:${XFTP_PORT_HTTPS:-443},fork,reuseaddr TCP4:xftp-server:${XFTP_PORT_HTTPS:-443}
 
-  oneshot:
-    image: ubuntu:latest
-    env_file:
-      - .env
-    environment:
-      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
-    command:
-      - /bin/sh
-      - -c
-      - |
-        mkdir -p /etc/caddy
-        cat <<EOF > /etc/caddy/Caddyfile
-        {
-            acme_ca $$ACME_CA
-        }
-
-        http://$$XFTP_ADDR {
-            redir https://$$XFTP_ADDR{uri} permanent
-        }
-
-        http:// {
-            reverse_proxy https://xftp-server:$$XFTP_PORT_HTTPS {
-                header_up Host $$XFTP_ADDR
-                transport http {
-                    tls_insecure_skip_verify
-                }
-            }
-        }
-
-        $$XFTP_ADDR:8443 {
-            tls {
-                key_type rsa4096
-            }
-        }
-        EOF
-    volumes:
-      - ./caddy_conf:/etc/caddy
-
   caddy:
     image: caddy:latest
-    depends_on:
-      oneshot:
-        condition: service_completed_successfully
     cap_add:
       - NET_ADMIN
     env_file:
       - .env
     environment:
       ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
     volumes:
-      - ./caddy_conf:/etc/caddy
       - caddy_data:/data
       - caddy_config:/config
     ports:
@@ -197,6 +158,33 @@ services:
     volumes:
       - ./xftp_configs:/etc/opt/simplex-xftp:ro
       - ./:/deploy
+
+configs:
+  # Caddy configuration, generated from .env on every `docker compose up`
+  caddyfile:
+    content: |
+      {
+          acme_ca ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+      }
+
+      http://${XFTP_ADDR} {
+          redir https://${XFTP_ADDR}{uri} permanent
+      }
+
+      http:// {
+          reverse_proxy https://xftp-server:${XFTP_PORT_HTTPS} {
+              header_up Host ${XFTP_ADDR}
+              transport http {
+                  tls_insecure_skip_verify
+              }
+          }
+      }
+
+      ${XFTP_ADDR}:8443 {
+          tls {
+              key_type rsa4096
+          }
+      }
 
 volumes:
   caddy_data:

@@ -1,52 +1,19 @@
 name: simplex-smp-server
 
 services:
-  # 1. Caddyfile Initialization
-  oneshot:
-    image: ubuntu:latest
-    env_file:
-      - .env
-    environment:
-      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
-    command:
-      - /bin/sh
-      - -c
-      - |
-        mkdir -p /etc/caddy
-        if [ ! -f /etc/caddy/Caddyfile ]; then
-          cat <<EOF > /etc/caddy/Caddyfile
-        {
-            acme_ca $$ACME_CA
-        }
-
-        http://$$SMP_ADDR {
-            redir https://$$SMP_ADDR{uri} permanent
-        }
-
-        $$SMP_ADDR:8443 {
-            tls {
-                key_type rsa4096
-            }
-        }
-        EOF
-        fi
-    volumes:
-      - ./caddy_conf:/etc/caddy
-
-  # 2. Caddy (Let's Encrypt certificates management)
+  # 1. Caddy (Let's Encrypt certificates management)
   caddy:
     image: caddy:latest
-    depends_on:
-      oneshot:
-        condition: service_completed_successfully
     cap_add:
       - NET_ADMIN
     env_file:
       - .env
     environment:
       ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
     volumes:
-      - ./caddy_conf:/etc/caddy
       - caddy_data:/data
       - caddy_config:/config
     ports:
@@ -57,7 +24,7 @@ services:
       interval: 1s
       retries: 60
 
-  # 3. SMP Server (dynamic INI generation and startup)
+  # 2. SMP Server (dynamic INI generation and startup)
   smp-server:
     image: simplexchat/smp-server:v7.0.1
     depends_on:
@@ -152,6 +119,24 @@ services:
     volumes:
       - ./smp_configs:/etc/opt/simplex:ro
       - ./:/deploy
+
+configs:
+  # Caddy configuration, generated from .env on every `docker compose up`
+  caddyfile:
+    content: |
+      {
+          acme_ca ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+      }
+
+      http://${SMP_ADDR} {
+          redir https://${SMP_ADDR}{uri} permanent
+      }
+
+      ${SMP_ADDR}:8443 {
+          tls {
+              key_type rsa4096
+          }
+      }
 
 volumes:
   caddy_data:
