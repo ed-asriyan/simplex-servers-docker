@@ -1,0 +1,36 @@
+name: renovate
+
+# Self-hosted Renovate: checks the dependencies Dependabot cannot track
+# (see renovate.json) and opens pull requests.
+#
+# Needs the RENOVATE_TOKEN repository secret: a fine-grained PAT (or a GitHub
+# App token) with read/write on contents, pull requests and workflows. The
+# default GITHUB_TOKEN is not enough: it cannot edit workflow files, and pull
+# requests it opens do not trigger the e2e workflow.
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: renovatebot/github-action@v46
+        with:
+          token: ${{ secrets.RENOVATE_TOKEN }}
+          configurationFile: renovate.json
+        env:
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          LOG_LEVEL: info

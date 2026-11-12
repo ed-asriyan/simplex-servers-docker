@@ -2,7 +2,6 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "Complements Dependabot (.github/dependabot.yml): Renovate handles only what Dependabot cannot.",
   "extends": ["config:recommended"],
-  "schedule": ["before 6am on monday"],
   "prConcurrentLimit": 3,
   "enabledManagers": ["custom.regex", "docker-compose", "github-actions"],
   "customManagers": [
