@@ -1,0 +1,43 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Complements Dependabot (.github/dependabot.yml): Renovate handles only what Dependabot cannot.",
+  "extends": ["config:recommended"],
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 3,
+  "enabledManagers": ["custom.regex", "docker-compose", "github-actions"],
+  "customManagers": [
+    {
+      "description": "Versions annotated with `# renovate: datasource=... depName=...` in workflows",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: extractVersion=(?<extractVersion>\\S+))?\\n\\s*\\w+: \"?(?<currentValue>[^\\s\"]+)\"?"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "docker-compose: everything is Dependabot's job, except floating caddy/alpine tags",
+      "matchManagers": ["docker-compose"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["docker-compose"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["caddy", "alpine"],
+      "enabled": true,
+      "pinDigests": true,
+      "groupName": "caddy and alpine digests"
+    },
+    {
+      "description": "github-actions: action versions are Dependabot's job, only the runner image (runs-on) is ours",
+      "matchManagers": ["github-actions"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchDatasources": ["github-runners"],
+      "enabled": true
+    }
+  ]
+}

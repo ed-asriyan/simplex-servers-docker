@@ -15,7 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # renovate: datasource=github-releases depName=simplex-chat/simplex-chat
   SIMPLEX_CHAT_VERSION: v7.1.2
+  # renovate: datasource=github-releases depName=yggdrasil-network/yggdrasil-go extractVersion=^v(?<version>.+)$
   YGGDRASIL_VERSION: 0.5.15
 
 jobs:
