@@ -2,7 +2,7 @@ name: simplex-xftp-server-yggdrasil-clearnet
 
 services:
   yggdrasil:
-    image: alpine:latest
+    image: alpine:3.24
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
@@ -38,7 +38,7 @@ services:
         exec socat TCP6-LISTEN:${XFTP_PORT_HTTPS:-443},fork,reuseaddr TCP4:xftp-server:${XFTP_PORT_HTTPS:-443}
 
   caddy:
-    image: caddy:latest
+    image: caddy:2.11.7
     cap_add:
       - NET_ADMIN
     env_file:
@@ -125,7 +125,7 @@ services:
   #   SIMPLEX_ADDRESS <network> <xftp|info> <address>
   # Printed to the logs (docker compose logs addresses) and saved to ./addresses.txt
   addresses:
-    image: alpine:latest
+    image: alpine:3.24
     depends_on:
       xftp-server:
         condition: service_started

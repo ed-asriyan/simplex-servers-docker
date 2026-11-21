@@ -3,7 +3,7 @@ name: simplex-smp-server-yggdrasil-clearnet
 services:
   # 0. Yggdrasil node: exposes the SMP server on the node's Yggdrasil (200::/7) address
   yggdrasil:
-    image: alpine:latest
+    image: alpine:3.24
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
@@ -43,7 +43,7 @@ services:
 
   # 1. Caddy (Let's Encrypt certificates management)
   caddy:
-    image: caddy:latest
+    image: caddy:2.11.7
     cap_add:
       - NET_ADMIN
     env_file:
@@ -133,7 +133,7 @@ services:
   #   SIMPLEX_ADDRESS <network> <smp|info> <address>
   # Printed to the logs (docker compose logs addresses) and saved to ./addresses.txt
   addresses:
-    image: alpine:latest
+    image: alpine:3.24
     depends_on:
       smp-server:
         condition: service_started

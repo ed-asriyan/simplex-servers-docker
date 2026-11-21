@@ -2,7 +2,7 @@ name: simplex-xftp-server
 
 services:
   caddy:
-    image: caddy:latest
+    image: caddy:2.11.7
     cap_add:
       - NET_ADMIN
     env_file:
@@ -89,7 +89,7 @@ services:
   #   SIMPLEX_ADDRESS <network> <xftp|info> <address>
   # Printed to the logs (docker compose logs addresses) and saved to ./addresses.txt
   addresses:
-    image: alpine:latest
+    image: alpine:3.24
     depends_on:
       xftp-server:
         condition: service_started
